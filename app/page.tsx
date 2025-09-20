@@ -5,6 +5,7 @@ import ChartView from "../components/ChartView";
 import TableView from "../components/TableView";
 import CodeBlock from "../components/CodeBlock";
 import ExplanationView from "../components/ExplanationView";
+import PythonExecutionResult from "../components/PythonExecutionResult"; // Make sure this component exists
 import Papa from "papaparse";
 import {
   Button,
@@ -31,6 +32,12 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [colorTheme, setColorTheme] = useState("purple");
   const [particles, setParticles] = useState<any[]>([]);
+  const [pythonExecution, setPythonExecution] = useState<{
+    output?: string;
+    error?: string;
+    imagePath?: string;
+    data?: any;
+  } | null>(null);
 
   useEffect(() => {
     const generated = Array.from({ length: 20 }, (_, i) => ({
@@ -199,6 +206,39 @@ export default function Home() {
     }
   };
 
+  // Add this function
+  const executePythonCode = async (code: string) => {
+    try {
+      const res = await fetch("http://localhost:3001/generate/execute-python", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to execute Python code");
+      }
+
+      const result = await res.json();
+      setPythonExecution(result);
+
+      // If we got data from the execution, also update the chart
+      if (result.data?.x && result.data?.y) {
+        setResponseData((prev: any) => ({
+          ...prev,
+          chart: {
+            x: result.data.x,
+            y: result.data.y,
+            label: 'Executed Code Result'
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Error executing Python code:", error);
+      setPythonExecution({ error: "Failed to execute Python code" });
+    }
+  };
+
   return (
     <>
       {/* Animated Background */}
@@ -300,10 +340,22 @@ export default function Home() {
                           DeepSeek
                         </div>
                       </SelectItem>
-                      <SelectItem value="Claude" className="text-white hover:bg-white/10">
+                      <SelectItem value="Llama" className="text-white hover:bg-white/10">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-orange-400 rounded-full" />
-                          Claude
+                          Llama 3.3
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="qwen2.5" className="text-white hover:bg-white/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-orange-400 rounded-full" />
+                          QWEN2.5
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="gpt-oss-20b" className="text-white hover:bg-white/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-orange-400 rounded-full" />
+                          GPT-OSS 
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -365,8 +417,21 @@ export default function Home() {
 
                   {/* Code Section */}
                   {responseData.code && (
-                    <div className="my-4">
-                      <CodeBlock code={responseData.code} language="python" />
+                    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 animate-fade-in-up">
+                      <h2 className="text-xl font-bold text-white mb-4">Generated Code</h2>
+                      <CodeBlock 
+                        code={responseData.code} 
+                        language="python" 
+                        onExecute={executePythonCode}
+                      />
+                    </div>
+                  )}
+
+                  {/* Python Execution Results */}
+                  {pythonExecution && (
+                    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 animate-fade-in-up">
+                      <h2 className="text-xl font-bold text-white mb-4">Execution Results</h2>
+                      <PythonExecutionResult result={pythonExecution} />
                     </div>
                   )}
 
